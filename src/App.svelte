@@ -3,7 +3,7 @@
 	import { csvParse, autoType } from "d3-dsv";
 	import { format } from "d3-format";
 	import parseColor from 'parse-color';
-	import { download, MagicArray } from "./utils";
+	import { download, MagicArray, sleep } from "./utils";
 	import template_default from "./template";
 	import Editor from "./ui/Editor.svelte";
 	import Icon from "./ui/Icon.svelte";
@@ -16,8 +16,10 @@
 	let places = null;
 	let lookup = null;
 	let place = null;
+	let plaintext = false;
+	let progress = 0;
 	
-	function render(template, place) {
+	function render(template, place, plaintext = false) {
 		try {
 			let str = rosae.render(template, {place, places, lookup, format, language: 'en_US'});
 			// Fix to remove spaces added between numbers and prefix/suffix symbols by rosae
@@ -25,21 +27,24 @@
 			str = str.replace(/(?<=[£€\$])\s+(?=\d)/g, "");
 			// Fix to add spaces after closing </mark> </em> or <strong> tags unless followed by one of . , <
 			str = str.replace(/((?<=<\/mark>)|(?<=<\/strong>)|(?<=<\/em>)|(?<=<\/[abi]>))(?![\.,<:;])/g, " ");
-			// Hack in ID labels
-			let sections = str.match(/<section([^<]*?)>/g);
-			sections = Array.isArray(sections) ? sections.filter((d,i,arr) => arr.indexOf(d) == i) : [];
-			let ids = sections ? sections.map(s => s.match(/id="([^<]*?)"/)) : [];
-			let classes = sections ? sections.map(s => s.match(/class="([^<]*?)"/)) : [];
-			sections.forEach((s, i) => {
-				str = str.replaceAll(s, `${s}${classes[i] ? `<span class="class-label">${classes[i][1]}</span>` : ''}${ids[i] ? `<span class="id-label">id: ${ids[i][1]}</span>` : ''}`);
-			});
-			// Write in keys for custom props
-			let props = str.match(/<prop([^<]*?)>/g);
-			props = Array.isArray(props) ? props.filter((d,i,arr) => arr.indexOf(d) == i) : [];
-			let prop_classes = props ? props.map(s => s.match(/class="([^<]*?)"/)) : [];
-			props.forEach((p, i) => {
-				str = str.replaceAll(p, `${p}${prop_classes[i][1]}: `);
-			});
+
+			if (!plaintext) {
+				// Hack in ID labels
+				let sections = str.match(/<section([^<]*?)>/g);
+				sections = Array.isArray(sections) ? sections.filter((d,i,arr) => arr.indexOf(d) == i) : [];
+				let ids = sections ? sections.map(s => s.match(/id="([^<]*?)"/)) : [];
+				let classes = sections ? sections.map(s => s.match(/class="([^<]*?)"/)) : [];
+				sections.forEach((s, i) => {
+					str = str.replaceAll(s, `${s}${classes[i] ? `<span class="class-label">${classes[i][1]}</span>` : ''}${ids[i] ? `<span class="id-label">id: ${ids[i][1]}</span>` : ''}`);
+				});
+				// Write in keys for custom props
+				let props = str.match(/<prop([^<]*?)>/g);
+				props = Array.isArray(props) ? props.filter((d,i,arr) => arr.indexOf(d) == i) : [];
+				let prop_classes = props ? props.map(s => s.match(/class="([^<]*?)"/)) : [];
+				props.forEach((p, i) => {
+					str = str.replaceAll(p, `${p}${prop_classes[i][1]}: `);
+				});
+			}
 			// Contrasting text colours for highlighted <mark> texts
 			let marks = str.match(/<mark([^<]*?)>/g);
 			if (Array.isArray(marks)) {
@@ -48,7 +53,7 @@
 				colors.forEach(color => {
 					let rgb = parseColor(color).rgb;
 					let text_color = (((rgb[0] * 299) + (rgb[1] * 587) + (rgb[2] * 114)) / 1000) > 125 ? "black" : "white";
-					str = str.replaceAll(`background-color: ${color}`, `background-color: ${color}; color: ${text_color};`);
+					str = str.replaceAll(`background-color: ${color}`, plaintext ? "" : `background-color: ${color}; color: ${text_color};`);
 				});
 			}
 			return str;
@@ -72,6 +77,26 @@
 		}
 	}
 
+	async function validatePUG() {
+		progress = 0;
+		let invalid = [];
+
+		let plcs = places ? [null, ...places] : [null];
+
+		for (let i = 0; i < plcs.length; i ++) {
+			progress = i == plcs.length - 1 ? 0 : (i + 1) / plcs.length;
+			await sleep(0);
+			let output = render(template, plcs[i], plaintext);
+			if (output == "") invalid.push(plcs[i] ? plcs[i].areanm : "No area selected");
+		}
+
+		if (invalid[0]) {
+			alert(`Validation failed for ${invalid.join(', ')}`);
+		} else {
+			alert("Validation passed for all areas.");
+		}
+	}
+
 	function makeData(str) {
 		let newplaces = csvParse(str, autoType);
 		let newlookup = {};
@@ -82,7 +107,6 @@
 		places = new MagicArray(...newplaces);
 		place = places[0];
 		lookup = newlookup;
-		console.log(places.sortBy)
 	}
 	function clickCSV() {
 		csv_upload.click();
@@ -105,41 +129,81 @@
 	}
 
 	async function ddjDemo() {
-		console.log("loading");
-		let csv_res = await fetch("./data/data.csv");
-		let csv_str = await csv_res.text();
-		makeData(csv_str);
-
-		let pug_res = await fetch("./data/template.txt");
-		let pug = await pug_res.text();
-		editor.setContent(pug);
+		getCSV("./data/data.csv");
+		getPUG("./data/template.txt");
 	}
 
 	async function nlgDemo() {
-		console.log("loading");
-		let csv_res = await fetch("./data/data.csv");
+		getCSV("./data/data.csv");
+		getPUG("./data/nlgtemplate.txt");
+	}
+
+	async function getCSV(url) {
+		console.log("loading csv");
+		let csv_res = await fetch(url);
 		let csv_str = await csv_res.text();
 		makeData(csv_str);
+	}
 
-		let pug_res = await fetch("./data/nlgtemplate.txt");
+	async function getPUG(url) {
+		console.log("loading pug");
+		let pug_res = await fetch(url);
 		let pug = await pug_res.text();
+		await sleep(50);
 		editor.setContent(pug);
 	}
 
 	onMount(() => {
 		window.ddjDemo = ddjDemo;
 		window.nlgDemo = nlgDemo;
+		let params = (new URL(document.location)).searchParams;
+		for (const [key, url] of params) {
+			console.log(key, url);
+			if (key == "csv") {
+				getCSV(url);
+			} else if (key == "pug") {
+				getPUG(url);
+			}
+		}
 	});
 </script>
 
 <svelte:head>
 	<script src="https://unpkg.com/rosaenlg@3.2.4/dist/rollup/rosaenlg_tiny_en_US_3.2.4_comp.js" on:load={() => rosae = window.rosaenlg_en_US}></script>
+	{#if plaintext}
+	<style>
+		mark {
+			background-color: rgba(255,255,255,0);
+		}
+		section > section {
+			margin-left: none;
+		}
+	</style>
+	{:else}
+	<style>
+		mark {
+			font-weight: bold;
+			padding: 0 4px;
+			background-color: lightgrey;
+		}
+		prop {
+			background-color: lightgrey;
+		}
+		section {
+			border-top: 1px solid black;
+		}
+		section > section {
+			margin-left: 20px;
+		}
+	</style>
+	{/if}
 </svelte:head>
 
 <main>
 	<nav>
 		<div>
 			<button on:click={clickPUG}><Icon type="load" margin/> Load PUG file</button>
+			<button on:click={validatePUG}>{#if progress}{(progress * 100).toFixed(0)}%{:else}<Icon type="validate" margin/>{/if} Validate PUG</button>
 			<button on:click={savePUG}><Icon type="save" margin/> Save PUG file</button>
 			<input type="file" accept=".pug" style="display:none" bind:this={pug_upload} on:change={loadPUG}>
 			<input type="file" accept=".csv" style="display:none" bind:this={csv_upload} on:change={loadCSV}>
@@ -156,6 +220,10 @@
 				<option value={null}>Load a CSV data file</option>
 				{/if}
 			</select>
+			<label>
+				<input type="checkbox" bind:checked={plaintext}/>
+				Plain text
+			</label>
 		</div>
 	</nav>
 	<div class="content">
@@ -164,7 +232,7 @@
 		</div>
 		<div class="preview">
 			{#if rosae && template}
-			{@html render(template, place)}
+			{@html render(template, place, plaintext)}
 			{/if}
 		</div>
 	</div>
@@ -187,7 +255,6 @@
 		margin-right: 4px;
 	}
 	:global(prop) {
-		background-color: lightgrey !important;
 		margin-right: 4px;
 	}
 	:global(prop.highlighted) {
@@ -212,15 +279,6 @@
 	}
 	:global(section) {
 		margin-top: 20px;
-		border-top: 1px solid black;
-	}
-	:global(section > section) {
-		margin-left: 20px;
-	}
-	:global(mark) {
-		background-color: lightgrey;
-		font-weight: bold;
-		padding: 0 4px;
 	}
 	:global(.visually-hidden) {
 		color: grey;
@@ -240,18 +298,20 @@
 		display: flex;
 		flex-direction: row;
 		flex-grow: 0;
-		background-color: grey;
+		background-color: #bbb;
 		padding: 8px;
 	}
 	nav > div {
 		display: flex;
 		flex-direction: row;
+		align-items: center;
   		flex: 1;
 	}
 	button {
 		display: inline-flex;
 		flex-direction: row;
 		margin: 0 8px 0 0;
+		cursor: pointer;
 	}
 	select {
 		margin: 0;
@@ -269,5 +329,13 @@
 	}
 	.preview {
 		padding: 10px;
+	}
+	nav label {
+		margin-left: 12px;
+	}
+	nav input[type=checkbox] {
+		transform: scale(1.5);
+		filter: saturate(0) contrast(2.5);
+		margin-right: 2.5px;
 	}
 </style>

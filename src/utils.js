@@ -31,3 +31,7 @@ export class MagicArray extends Array {
 		return new MagicArray(...this).reverse();
 	}
 }
+
+export function sleep (ms = 1000) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
