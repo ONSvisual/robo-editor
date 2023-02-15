@@ -130,12 +130,12 @@
 
 	async function ddjDemo() {
 		getCSV("./data/data.csv");
-		getPUG("./data/template.txt");
+		getPUG("./data/template.pug");
 	}
 
 	async function nlgDemo() {
 		getCSV("./data/data.csv");
-		getPUG("./data/nlgtemplate.txt");
+		getPUG("./data/nlgtemplate.pug");
 	}
 
 	async function getCSV(url) {

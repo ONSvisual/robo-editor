@@ -24,7 +24,7 @@ if place
         section#scatter_b
             p This includes #{format(",.2r")(place.limited_lot_2011)} people (#{format(".0f")(place.limited_lot_2011_pc)}%) who said their day to day activities were limited a lot.
         section#scatter_c
-            prop.highlighted #{places.filterBy("regioncd", place.regioncd).map(p => p.areacd)}
+            prop.highlighted #{places.filterBy("regioncd", place.regioncd).map(p => p.areacd).join("|")}
             p And this is how the percentage for #{place.areanm} compares to all of the local authorities in #{lookup[place.regioncd ? place.regioncd : place.ctrycd].areanm}.
     
     section#filler1.Filler
