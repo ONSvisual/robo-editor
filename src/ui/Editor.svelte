@@ -9,6 +9,7 @@
 	export function setContent(content) {
 		editor ? editor.session.setValue(content, -1) : null
 	}
+  export let width;
 	
 	function initEditor() {
 		ace.config.set("basePath", "https://cdnjs.cloudflare.com/ajax/libs/ace/1.7.1/");
@@ -31,16 +32,23 @@
 			});
 		});
 	}
+
+  let w;
+  function resize(w) {
+    if (editor) editor.resize();
+  }
+  $: resize(width);
 </script>
 
 <svelte:head>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.7.1/ace.min.js" on:load={initEditor}></script>
 </svelte:head>
 
-<pre id="editor"/>
+<div id="editor"/>
 
 <style>
 	#editor {
+    position: relative;
 		padding: 0;
 		margin: 0;
 		width: 100%;

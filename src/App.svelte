@@ -1,10 +1,12 @@
 <script>
 	import { onMount } from "svelte";
-	import { csvParse, autoType } from "d3-dsv";
+  import { MagicArray, autoType, renderHTML } from "@onsvisual/robo-utils";
+	import { csvParse } from "d3-dsv";
 	import { format } from "d3-format";
 	import parseColor from 'parse-color';
-	import { download, MagicArray, sleep } from "./utils";
+	import { download, sleep } from "./utils";
 	import template_default from "./template";
+  import { HSplitPane } from "svelte-split-pane";
 	import Editor from "./ui/Editor.svelte";
 	import Icon from "./ui/Icon.svelte";
 	
@@ -18,6 +20,7 @@
 	let place = null;
 	let plaintext = false;
 	let progress = 0;
+  let w;
 	
 	function render(template, place, plaintext = false) {
 		try {
@@ -98,13 +101,12 @@
 	}
 
 	function makeData(str) {
-		let newplaces = csvParse(str, autoType);
+		let newplaces = new MagicArray(...csvParse(str, autoType));
 		let newlookup = {};
 		newplaces.forEach(d => newlookup[d.areacd] = d);
 
-		newplaces = newplaces.filter(d => ["E06","E07","E08","E09","W06"].includes(d.areacd.slice(0,3)))
+		places = newplaces.filter(d => ["E06","E07","E08","E09","W06"].includes(d.areacd.slice(0,3)))
 			.sort((a, b) => a.areanm.localeCompare(b.areanm));
-		places = new MagicArray(...newplaces);
 		place = places[0];
 		lookup = newlookup;
 	}
@@ -226,16 +228,21 @@
 			</label>
 		</div>
 	</nav>
-	<div class="content">
-		<div>
-			<Editor bind:content={template} bind:this={editor}/>
-		</div>
-		<div class="preview">
-			{#if rosae && template}
-			{@html render(template, place, plaintext)}
-			{/if}
-		</div>
-	</div>
+  <div class="content">
+    <HSplitPane>
+      <left slot="left">
+        <div bind:clientWidth={w}/>
+        <Editor bind:content={template} bind:this={editor} width={w}/>
+      </left>
+      <right slot="right">
+        <div class="preview">
+          {#if rosae && template}
+          {@html renderHTML(template, place, places, lookup, plaintext, rosae)}
+          {/if}
+        </div>
+      </right>
+    </HSplitPane>
+  </div>
 </main>
 
 <style>
@@ -316,19 +323,23 @@
 	select {
 		margin: 0;
 	}
-	.content {
-		display: flex;
-		flex-direction: row;
-		flex-grow: 1;
-		overflow: hidden;
-	}
-	.content > div {
-  		flex: 1;
-		overflow-y: auto;
-		height: 100%;
-	}
+  .content {
+    display: flex;
+    flex-direction: row;
+    flex-grow: 1;
+    overflow: hidden;
+  }
+  left, right {
+    position: relative;
+  }
+  left > div {
+    position: absolute;
+    width: 100%;
+  }
 	.preview {
 		padding: 10px;
+    overflow-y: auto;
+		height: 100%;
 	}
 	nav label {
 		margin-left: 12px;
