@@ -20,7 +20,7 @@
       if (section[`padding-${dir}`]) padding[dir] = section[`padding-${dir}`];
     });
     props.padding = padding;
-    if (!props.legend && !props.legend === false) props.legend = props.zKey ? true : false;
+    if (!props.legend && props.legend !== false) props.legend = props.zKey ? true : false;
     return props;
   }
 
