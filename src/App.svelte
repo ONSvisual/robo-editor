@@ -1,69 +1,33 @@
 <script>
 	import { onMount } from "svelte";
-  import { MagicArray, autoType, renderHTML } from "@onsvisual/robo-utils";
+  import { MagicArray, autoType, renderJSON } from "@onsvisual/robo-utils";
 	import { csvParse } from "d3-dsv";
 	import { format } from "d3-format";
-	import parseColor from 'parse-color';
+	import parseColor from "parse-color";
+  import debounce from "debounce";
 	import { download, sleep } from "./utils";
 	import template_default from "./template";
   import { HSplitPane } from "svelte-split-pane";
 	import Editor from "./ui/Editor.svelte";
 	import Icon from "./ui/Icon.svelte";
+  import Section from "./ui/Section.svelte";
 	
 	// DOM BINDINGS ETC
 	let rosae, editor, pug_upload, csv_upload;
 	
 	// DATA/STATE
 	let template = template_default;
+  let output;
 	let places = null;
 	let lookup = null;
 	let place = null;
 	let plaintext = false;
 	let progress = 0;
   let w;
-	
-	function render(template, place, plaintext = false) {
-		try {
-			let str = rosae.render(template, {place, places, lookup, format, language: 'en_US'});
-			// Fix to remove spaces added between numbers and prefix/suffix symbols by rosae
-			str = str.replace(/(?<=\d)\s+((?=%)|(?=p{2}))/g, "");
-			str = str.replace(/(?<=[£€\$])\s+(?=\d)/g, "");
-			// Fix to add spaces after closing </mark> </em> or <strong> tags unless followed by one of . , <
-			str = str.replace(/((?<=<\/mark>)|(?<=<\/strong>)|(?<=<\/em>)|(?<=<\/[abi]>))(?![\.,<:;])/g, " ");
 
-			if (!plaintext) {
-				// Hack in ID labels
-				let sections = str.match(/<section([^<]*?)>/g);
-				sections = Array.isArray(sections) ? sections.filter((d,i,arr) => arr.indexOf(d) == i) : [];
-				let ids = sections ? sections.map(s => s.match(/id="([^<]*?)"/)) : [];
-				let classes = sections ? sections.map(s => s.match(/class="([^<]*?)"/)) : [];
-				sections.forEach((s, i) => {
-					str = str.replaceAll(s, `${s}${classes[i] ? `<span class="class-label">${classes[i][1]}</span>` : ''}${ids[i] ? `<span class="id-label">id: ${ids[i][1]}</span>` : ''}`);
-				});
-				// Write in keys for custom props
-				let props = str.match(/<prop([^<]*?)>/g);
-				props = Array.isArray(props) ? props.filter((d,i,arr) => arr.indexOf(d) == i) : [];
-				let prop_classes = props ? props.map(s => s.match(/class="([^<]*?)"/)) : [];
-				props.forEach((p, i) => {
-					str = str.replaceAll(p, `${p}${prop_classes[i][1]}: `);
-				});
-			}
-			// Contrasting text colours for highlighted <mark> texts
-			let marks = str.match(/<mark([^<]*?)>/g);
-			if (Array.isArray(marks)) {
-				marks = marks.filter((d,i,arr) => arr.indexOf(d) == i && d.includes("background-color"));
-				let colors = marks.map(d => d.match(/(?<=background-color:\s).+(?=[";])/)[0]);
-				colors.forEach(color => {
-					let rgb = parseColor(color).rgb;
-					let text_color = (((rgb[0] * 299) + (rgb[1] * 587) + (rgb[2] * 114)) / 1000) > 125 ? "black" : "white";
-					str = str.replaceAll(`background-color: ${color}`, plaintext ? "" : `background-color: ${color}; color: ${text_color};`);
-				});
-			}
-			return str;
-		} catch {
-			return "";
-		}
-	}
+  const render = debounce(() => output = renderJSON(template, place, places, lookup, rosae), 500);
+  $: if (rosae && template) render(template, place, places, lookup);
+  $: console.log(output);
 
 	function clickPUG() {
 		pug_upload.click();
@@ -190,6 +154,7 @@
 		}
 		prop {
 			background-color: lightgrey;
+      margin-right: 4px;
 		}
 		section {
 			border-top: 1px solid black;
@@ -236,8 +201,10 @@
       </left>
       <right slot="right">
         <div class="preview">
-          {#if rosae && template}
-          {@html renderHTML(template, place, places, lookup, plaintext, rosae)}
+          {#if output}
+          {#each output.sections as section}
+          <Section {section}/>
+          {/each}
           {/if}
         </div>
       </right>
@@ -255,14 +222,9 @@
 	}
 	:global(.class-label) {
 		background-color: lightgreen;
-		margin-right: 4px;
 	}
 	:global(.id-label) {
 		background-color: yellow;
-		margin-right: 4px;
-	}
-	:global(prop) {
-		margin-right: 4px;
 	}
 	:global(prop.highlighted) {
 		display: inline-block;
@@ -312,7 +274,7 @@
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-  		flex: 1;
+  	flex: 1;
 	}
 	button {
 		display: inline-flex;
