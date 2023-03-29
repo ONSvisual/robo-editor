@@ -53,7 +53,7 @@
 		for (let i = 0; i < plcs.length; i ++) {
 			progress = i == plcs.length - 1 ? 0 : (i + 1) / plcs.length;
 			await sleep(0);
-			let output = render(template, plcs[i], plaintext);
+			let output = renderJSON(template, place, places, lookup, rosae);
 			if (output == "") invalid.push(plcs[i] ? plcs[i].areanm : "No area selected");
 		}
 
@@ -203,7 +203,7 @@
         <div class="preview">
           {#if output}
           {#each output.sections as section}
-          <Section {section}/>
+          <Section {section} {plaintext}/>
           {/each}
           {/if}
         </div>
