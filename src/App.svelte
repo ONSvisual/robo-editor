@@ -69,7 +69,7 @@
 		let newlookup = {};
 		newplaces.forEach(d => newlookup[d.areacd] = d);
 
-		places = newplaces.filter(d => ["E06","E07","E08","E09","W06"].includes(d.areacd.slice(0,3)))
+		places = newplaces.filter(d => ["E06","E07","E08","E09","W06", "S12", "N09"].includes(d.areacd.slice(0,3)))
 			.sort((a, b) => a.areanm.localeCompare(b.areanm));
 		place = places[0];
 		lookup = newlookup;
