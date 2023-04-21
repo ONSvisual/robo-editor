@@ -1,11 +1,12 @@
 <script>
-  import Chart from "./Chart.svelte";
+  import { Chart } from "@onsvisual/svelte-charts";
   
   export let section;
   export let plaintext = false;
+  export let single = false;
 </script>
 
-<section>
+<section style:border-top={single ? "none" : null}>
   {#if section.type && !plaintext}<span class="class-label">{section.type}</span>{/if}
   {#if section.id && !plaintext}<span class="id-label">id: {section.id}</span>{/if}
   {#if section.type === "Chart" && section.chartType && !plaintext}

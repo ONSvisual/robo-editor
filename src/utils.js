@@ -32,6 +32,45 @@ export class MagicArray extends Array {
 	}
 }
 
-export function sleep (ms = 1000) {
+export function sleep(ms = 1000) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function getColKeys(keys) {
+	const lc = keys.map(key => key.toLowerCase());
+  let id;
+	for (let key of ["areacd", "code", "id"]) {
+		let i = lc.indexOf(key);
+		if (i > -1 && !id) id = keys[i];
+	}
+	if (!id) id = lc.find(key => key.toLowerCase().slice(-4) === "code");
+	if (!id) id = lc.find(key => key.toLowerCase().slice(-2) === "cd");
+	if (!id) id = keys[0];
+
+  let label;
+	for (let key of ["areanm", "name", "label"]) {
+		let i = lc.indexOf(key);
+		if (i > -1 && !label) label = keys[i];
+	}
+  if (!label) label = lc.find(key => key.toLowerCase().slice(-4) === "name");
+	if (!label) label = lc.find(key => key.toLowerCase().slice(-2) === "nm");
+	if (!label) label = keys[0];
+  
+  return {id, label};
+}
+
+export function setStorage(name, value) {
+	let val = JSON.stringify(value);
+	localStorage.setItem(name, val);
+}
+
+export function getStorage(name) {
+	if (localStorage.getItem(name)) {
+		return JSON.parse(localStorage.getItem(name));
+	}
+	return null;
+}
+
+export function deleteStorage(name) {
+	localStorage.removeItem(name);
 }

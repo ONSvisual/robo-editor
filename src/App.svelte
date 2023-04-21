@@ -5,27 +5,37 @@
 	import { format } from "d3-format";
 	import parseColor from "parse-color";
   import debounce from "debounce";
-	import { download, sleep } from "./utils";
-	import template_default from "./template";
+	import { download, sleep, getColKeys, setStorage, getStorage } from "./utils";
   import { HSplitPane } from "svelte-split-pane";
 	import Editor from "./ui/Editor.svelte";
 	import Icon from "./ui/Icon.svelte";
   import Section from "./ui/Section.svelte";
+  import Modal from "./ui/Modal.svelte";
+  import Table from "./ui/Table.svelte";
+  import Help from "./Help.svelte";
+
+  // CONSTANTS
+  const filter_default = ["E06","E07","E08","E09","W06", "S12", "N09"];
 	
 	// DOM BINDINGS ETC
 	let rosae, editor, pug_upload, csv_upload;
 	
-	// DATA/STATE
-	let template = template_default;
-  let output;
-	let places = null;
-	let lookup = null;
-	let place = null;
+  // STATE/DATA
+	let template = "";
+  let output, data_raw, data, lookup, places, place, keys, ids, filter;
 	let plaintext = false;
+  let modal_data = false;
+  let modal_help = false;
+  let modal_filter = false;
 	let progress = 0;
+
+  // BINDINGS
   let w;
 
-  const render = debounce(() => output = renderJSON(template, place, places, lookup, rosae), 500);
+  const render = debounce(() => {
+    output = renderJSON(template, place, places, lookup, rosae);
+    setStorage("robo-store", {data_raw, template, filter});
+  }, 500);
   $: if (rosae && template) render(template, place, places, lookup);
   $: console.log(output);
 
@@ -36,10 +46,8 @@
 		let file = pug_upload.files[0] ? pug_upload.files[0] : null;
 		
 		if (file) {
-			var reader = new FileReader();
-			reader.onload = function(e) {
-				editor.setContent(e.target.result);
-			};
+			const reader = new FileReader();
+			reader.onload = (e) => editor.setContent(e.target.result);
 			reader.readAsText(file);
 		}
 	}
@@ -50,27 +58,41 @@
 
 		let plcs = places ? [null, ...places] : [null];
 
-		for (let i = 0; i < plcs.length; i ++) {
-			progress = i == plcs.length - 1 ? 0 : (i + 1) / plcs.length;
+    let i = 0;
+		while (i < plcs.length && invalid.length < 5) {
+			progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
 			await sleep(0);
 			let output = renderJSON(template, place, places, lookup, rosae);
-			if (output == "") invalid.push(plcs[i] ? plcs[i].areanm : "No area selected");
+			if (output === "") invalid.push(plcs[i] ? plcs[i][keys.label] : "No area selected");
+      i ++;
 		}
 
 		if (invalid[0]) {
-			alert(`Validation failed for ${invalid.join(', ')}`);
+			alert(`Validation failed for areas including ${invalid.join(', ')}`);
 		} else {
 			alert("Validation passed for all areas.");
 		}
 	}
 
 	function makeData(str) {
-		let newplaces = new MagicArray(...csvParse(str, autoType));
-		let newlookup = {};
-		newplaces.forEach(d => newlookup[d.areacd] = d);
+    data_raw = str;
+    let newdata = csvParse(str, autoType);
+    keys = getColKeys(newdata.columns);
+    ids = Array.from(
+      new Set(newdata.map(d => d[keys.id].slice(0, 3)))).sort((a, b) => a.localeCompare(b)
+    );
+    filter = filter_default.filter(f => ids.includes(f));
+    if (filter.length === 0) filter = ids; 
 
-		places = newplaces.filter(d => ["E06","E07","E08","E09","W06", "S12", "N09"].includes(d.areacd.slice(0,3)))
-			.sort((a, b) => a.areanm.localeCompare(b.areanm));
+		data = new MagicArray(...newdata);
+
+		let newlookup = {};
+		data.forEach(d => {
+      newlookup[d[keys.id]] = d;
+      newlookup[d[keys.label]] = d;
+    });
+
+		places = filterData(data, keys, filter);
 		place = places[0];
 		lookup = newlookup;
 	}
@@ -81,27 +103,43 @@
 		let file = csv_upload.files[0] ? csv_upload.files[0] : null;
 		
 		if (file) {
-			var reader = new FileReader();
-			reader.onload = function(e) {
-				makeData(e.target.result);
-			};
+			const reader = new FileReader();
+			reader.onload = (e) => makeData(e.target.result);
 			reader.readAsText(file);
 		}
 	}
+
+  function filterData(data, keys, filter) {
+    return data.filter(d => filter.includes(d[keys.id].slice(0,3)))
+			.sort((a, b) => a[keys.label].localeCompare(b[keys.label]));
+  }
 
 	function savePUG() {
 		let blob = new Blob([template], { type: "text/pug;charset=utf-8" });
 		download(blob, "template.pug");
 	}
 
-	async function ddjDemo() {
+  async function loadIntro() {
+    template = "";
+    places = null;
+    lookup = null;
+    place = null;
+    getPUG("./data/intro.pug");
+  }
+
+	async function embedDemo() {
+		getCSV("./data/data_v2.csv");
+		getPUG("./data/template_embed.pug");
+	}
+
+  async function scrollyDemo() {
 		getCSV("./data/data.csv");
 		getPUG("./data/template.pug");
 	}
 
 	async function nlgDemo() {
 		getCSV("./data/data.csv");
-		getPUG("./data/nlgtemplate.pug");
+		getPUG("./data/template_nlg.pug");
 	}
 
 	async function getCSV(url) {
@@ -116,21 +154,36 @@
 		let pug_res = await fetch(url);
 		let pug = await pug_res.text();
 		await sleep(50);
-		editor.setContent(pug);
+    template = pug;
+		editor.setContent(template);
 	}
 
 	onMount(() => {
-		window.ddjDemo = ddjDemo;
+		window.embedDemo = embedDemo;
+		window.scrollyDemo = scrollyDemo;
 		window.nlgDemo = nlgDemo;
+
 		let params = (new URL(document.location)).searchParams;
+    let pug;
 		for (const [key, url] of params) {
 			console.log(key, url);
 			if (key == "csv") {
 				getCSV(url);
 			} else if (key == "pug") {
+        pug = true;
 				getPUG(url);
 			}
 		}
+    let store = getStorage("robo-store");
+    if (!pug && store) {
+      data_raw = store.data_raw;
+      makeData(data_raw);
+      filter = store.filter;
+      template = store.template;
+		  editor.setContent(template);
+    } else if (!pug) {
+      loadIntro();
+    }
 	});
 </script>
 
@@ -169,29 +222,35 @@
 <main>
 	<nav>
 		<div>
-			<button on:click={clickPUG}><Icon type="load" margin/> Load PUG file</button>
-			<button on:click={validatePUG}>{#if progress}{(progress * 100).toFixed(0)}%{:else}<Icon type="validate" margin/>{/if} Validate PUG</button>
-			<button on:click={savePUG}><Icon type="save" margin/> Save PUG file</button>
+      <button title="Close PUG and CSV (return to intro)" on:click={loadIntro}><Icon type="trash"/></button>
+			<button on:click={clickPUG}><Icon type="load" margin/><span>Load PUG</span></button>
+			<button on:click={validatePUG}>{#if progress}{(progress * 100).toFixed(0)}%{:else}<Icon type="validate" margin/>{/if}<span>Validate PUG</span></button>
+			<button on:click={savePUG}><Icon type="save" margin/><span>Save PUG</span></button>
 			<input type="file" accept=".pug" style="display:none" bind:this={pug_upload} on:change={loadPUG}>
 			<input type="file" accept=".csv" style="display:none" bind:this={csv_upload} on:change={loadCSV}>
-		</div>
-		<div>
-			<button on:click={clickCSV}><Icon type="load" margin/> Load CSV file</button>
+      <div class="v-divider"/>
+			<button on:click={clickCSV}><Icon type="load" margin/><span>Load CSV</span></button>
 			<select bind:value={place} disabled={!places}>
 				{#if places}
 				<option value={null}>No area selected</option>
 				{#each places as option}
-				<option value={option}>{option.areanm}</option>
+				<option value={option}>{option[keys.label]}</option>
 				{/each}
 				{:else}
 				<option value={null}>Load a CSV data file</option>
 				{/if}
 			</select>
+      <button style:margin-right="0" disabled={!places} title="Show CSV as table" on:click={() => modal_data = true}><Icon type="table"/></button>
+      <button disabled={!places} title="Filter CSV by ID" on:click={() => modal_filter = true}><Icon type="filter"/></button>
+      <div class="v-divider"/>
 			<label>
 				<input type="checkbox" bind:checked={plaintext}/>
 				Plain text
 			</label>
 		</div>
+    <div>
+      <button class="right" title="Show help" on:click={() => modal_help = true}><Icon type="info"/></button>
+    </div>
 	</nav>
   <div class="content">
     <HSplitPane>
@@ -202,8 +261,8 @@
       <right slot="right">
         <div class="preview">
           {#if output}
-          {#each output.sections as section}
-          <Section {section} {plaintext}/>
+          {#each output.sections as section, i}
+          <Section {section} {plaintext} single={i === 0}/>
           {/each}
           {/if}
         </div>
@@ -211,6 +270,27 @@
     </HSplitPane>
   </div>
 </main>
+
+<Modal title="Loaded CSV" bind:open={modal_data}>
+  <Table data={places}/>
+</Modal>
+
+<Modal title="Filter CSV rows" bind:open={modal_filter}>
+  <p>Select from these 3-letter prefixes in the <strong>{keys ? keys.id : "ID"}</strong> column.</p>
+  {#each ids as id}
+  <label class="checkbox-label">
+    <input type="checkbox" name="filter" bind:group={filter} value={id} on:change={() => {
+      places = filterData(data, keys, filter);
+      place = place = places[0];
+      }}/>
+    {id}
+  </label>
+  {/each}
+</Modal>
+
+<Modal title="Help" bind:open={modal_help}>
+  <Help/>
+</Modal>
 
 <style>
 	:global(*) {
@@ -257,6 +337,18 @@
 		margin: 0 4px;
 		padding: 0 4px;
 	}
+  :global(div.separator) {
+    width: 6px !important;
+    background: lightgrey !important;
+  }
+  label.checkbox-label {
+    display: inline-block;
+  }
+  label.checkbox-label + label.checkbox-label {
+    border-left: 2px solid grey;
+    margin-left: 6px;
+    padding-left: 8px;
+  }
 	main {
 		display: flex;
 		flex-direction: column;
@@ -264,26 +356,38 @@
 		max-height: 100vh;
 	}
 	nav {
+    width: 100%;
 		display: flex;
 		flex-direction: row;
-		flex-grow: 0;
+    justify-content: space-between;
 		background-color: #bbb;
-		padding: 8px;
+		padding: 6px;
 	}
 	nav > div {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-  	flex: 1;
 	}
 	button {
 		display: inline-flex;
 		flex-direction: row;
-		margin: 0 8px 0 0;
+    align-items: center;
+    height: 38px;
+		margin: 0 6px 0 0;
 		cursor: pointer;
 	}
+  button:disabled {
+    cursor: auto;
+  }
+  button.right {
+    margin: 0;
+  }
+  button > span {
+    margin-left: 2px;
+  }
 	select {
 		margin: 0;
+    max-width: 200px;
 	}
   .content {
     display: flex;
@@ -304,11 +408,17 @@
 		height: 100%;
 	}
 	nav label {
-		margin-left: 12px;
+		margin-left: 1px;
 	}
 	nav input[type=checkbox] {
 		transform: scale(1.5);
 		filter: saturate(0) contrast(2.5);
 		margin-right: 2.5px;
 	}
+  .v-divider {
+    width: 2px;
+    height: 100%;
+    background-color: grey;
+    margin-right: 8px;
+  }
 </style>

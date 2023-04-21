@@ -1,4 +1,4 @@
-export default `h1 Robo-journalism script editor
+h1 Robo-journalism script editor
 p This tool allows for live editing of robo-journalism articles using PUG template files and a CSV data source. The editor incorporates the natural language generation features of #[a(href="https://rosaenlg.org/rosaenlg/3.2.3/index.html" target="_blank") RosaeNLG].
 
 h2 Getting started
@@ -11,10 +11,13 @@ p Secondly, there is <b>places</b>, which contains an array of data objects for 
 p Finally, there is <b>lookup</b> which allows data for every place in the dataset to be accessed via its GSS code, eg. §<b>#{'#{lookup["W92000004"].column_name}'}</b>§ would give a data value for Wales. This lookup can also be used to access data for a parent of the selected place. Eg. §<b>#{'#{lookup[place.parentcd].areanm}'}</b>§ would give the name of the selected area's parent – assuming there is a "parentcd" column in the CSV and the parent's data is included as a row.
 
 h2 Simple article demo
-p If you want to skip straight to the action, there's a demo CSV dataset and PUG template file so you can see how it works. #[button(onclick="ddjDemo()" class="btn-inline") Click here] to load it.
+p If you want to skip straight to the action, there's a demo CSV dataset and PUG template file so you can see how it works. The output of this demo is used in the #[a(href="https://github.com/robo-embed" target="_blank") robo-embed] Svelte Kit template. #[button(onclick="embedDemo()" class="btn-inline") Click here] to load it.
+
+h2 Scrolly article demo
+p A more complex demo, suitable for a localised scrollytelling article. The output of this demo is used in the #[a(href="https://github.com/robo-scrolly" target="_blank") robo-scrolly] Svelte Kit template. #[button(onclick="scrollyDemo()" class="btn-inline") Click here] to load it.
 
 h2 NLG/logic demo
-p PUG and RosaeNLG also allow for the possibility of introducing logic and natural language generation (NLG) into your templates. #[button(onclick="nlgDemo()" class="btn-inline") Click here] to see an example, using the same CSV file as above.
+p PUG and RosaeNLG also allow for the possibility of introducing logic and natural language generation (NLG) into your templates. #[button(onclick="nlgDemo()" class="btn-inline") Click here] to see an example.
 
 h2 Saving your progress
-p Be sure to save your progress before closing this window! Click "Save PUG file" to download your template a PUG file, or just copy-paste the text from the editor on the left.`
+p Be sure to save your progress before closing this window! Click "Save PUG file" to download your template a PUG file, or just copy-paste the text from the editor on the left.

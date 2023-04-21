@@ -8,17 +8,6 @@ section#top.Header
         p Select a local authority area for a personalised look at health, disability and unpaid care
 
 if place
-    section.Chart
-        prop.chartType bar
-        prop.title Top 5 areas by population
-        prop.data= places.top("population_2011", 5).toData({x: "population_2011", y: "areanm"})
-        prop.padding-left= 80
-
-    section.Chart
-        prop.chartType line
-        prop.title Top 5 areas by population, over time
-        prop.data= places.top("population_2011", 5).toData({x: ["2001", "2011"], y: ["population_2001", "population_2011"], z: "areanm"})
-
     section#intro.Filler
         p.text-big There are around #{Math.round(lookup["K04000001"].long_term_illness_2011 / 1e6)} million people in England and Wales whose day-to-day activities are limited by a long-term health problem or disability, while around #{Math.round(lookup["K04000001"].unpaid_care_20_plus_2011 / 1e6)} million people are providing at least 20 hours a week of unpaid care for someone else.
         p.text-big This article uses data from the 2011 Census to show how the numbers vary from area to area.
