@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from "svelte";
-  import { MagicArray, autoType, renderJSON } from "@onsvisual/robo-utils";
+  import { MagicArray, autoType, renderJSON, ascending } from "@onsvisual/robo-utils";
 	import { csvParse } from "d3-dsv";
 	import { format } from "d3-format";
 	import parseColor from "parse-color";
@@ -22,7 +22,7 @@
 	
   // STATE/DATA
 	let template = "";
-  let output, data_raw, data, lookup, places, place, keys, ids, filter;
+  let output, data_raw, data, lookup, places, place, cols, keys, ids, filter;
 	let plaintext = false;
   let modal_data = false;
   let modal_help = false;
@@ -34,7 +34,7 @@
 
   const render = debounce(() => {
     output = renderJSON(template, place, places, lookup, rosae);
-    setStorage("robo-store", {data_raw, template, filter});
+    setStorage("robo-store", {data_raw, template, filter, keys});
   }, 500);
   $: if (rosae && template) render(template, place, places, lookup);
   $: console.log(output);
@@ -74,15 +74,15 @@
 		}
 	}
 
-	function makeData(str) {
+	function makeData(str, _keys = null, _filter = null) {
     data_raw = str;
     let newdata = csvParse(str, autoType);
-    keys = getColKeys(newdata.columns);
+    cols = newdata.columns;
+    keys = _keys ? _keys : getColKeys(cols);
     ids = Array.from(
-      new Set(newdata.map(d => d[keys.id].slice(0, 3)))).sort((a, b) => a.localeCompare(b)
-    );
-    filter = filter_default.filter(f => ids.includes(f));
-    if (filter.length === 0) filter = ids; 
+      new Set(newdata.map(d => `${d[keys.id]}`.slice(0, 3)))).sort(ascending);
+    console.log(keys, ids);
+    filter = _filter ? _filter : filter_default.some(f => ids.includes(f)) ? filter_default.filter(f => ids.includes(f)) : [];
 
 		data = new MagicArray(...newdata);
 
@@ -110,8 +110,8 @@
 	}
 
   function filterData(data, keys, filter) {
-    return data.filter(d => filter.includes(d[keys.id].slice(0,3)))
-			.sort((a, b) => a[keys.label].localeCompare(b[keys.label]));
+    let filtered = filter.length > 0 ? data.filter(d => filter.includes(d[keys.id].slice(0,3))) : new MagicArray(...data);
+    return filtered.sort((a, b) => a[keys.label].localeCompare(b[keys.label]));
   }
 
 	function savePUG() {
@@ -177,8 +177,7 @@
     let store = getStorage("robo-store");
     if (!pug && store) {
       data_raw = store.data_raw;
-      makeData(data_raw);
-      filter = store.filter;
+      makeData(data_raw, store.keys, store.filter);
       template = store.template;
 		  editor.setContent(template);
     } else if (!pug) {
@@ -275,8 +274,25 @@
   <Table data={places}/>
 </Modal>
 
-<Modal title="Filter CSV rows" bind:open={modal_filter}>
-  <p>Select from these 3-letter prefixes in the <strong>{keys ? keys.id : "ID"}</strong> column.</p>
+<Modal title="CSV columns and filters" bind:open={modal_filter}>
+  <p>Select <strong>id</strong> and <strong>label</strong> columns in dataset.</p>
+  <label class="checkbox-label">
+    id:<br>
+    <select bind:value={keys.id} on:change={() => makeData(data_raw, keys)}>
+      {#each cols as col}
+      <option value={col}>{col}</option>
+      {/each}
+    </select>
+  </label>
+  <label class="checkbox-label">
+    label:<br>
+    <select bind:value={keys.label} on:change={() => makeData(data_raw, keys)}>
+      {#each cols as col}
+      <option value={col}>{col}</option>
+      {/each}
+    </select>
+  </label>
+  <p style:margin-top="16px">To filter the rows in the CSV, select from these 3-letter prefixes in the <strong>id</strong> ({keys.id}) column.</p>
   {#each ids as id}
   <label class="checkbox-label">
     <input type="checkbox" name="filter" bind:group={filter} value={id} on:change={() => {
@@ -345,9 +361,9 @@
     display: inline-block;
   }
   label.checkbox-label + label.checkbox-label {
-    border-left: 2px solid grey;
-    margin-left: 6px;
-    padding-left: 8px;
+    border-left: 1px solid grey;
+    margin-left: 8px;
+    padding-left: 10px;
   }
 	main {
 		display: flex;
