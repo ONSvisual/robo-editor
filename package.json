@@ -9,7 +9,7 @@
     "start": "sirv public --no-clear"
   },
   "devDependencies": {
-    "@onsvisual/robo-utils": "^0.2.1",
+    "@onsvisual/robo-utils": "^0.2.3",
     "@onsvisual/svelte-charts": "^0.2.11",
     "@rollup/plugin-commonjs": "^24.0.1",
     "@rollup/plugin-json": "^6.0.0",
