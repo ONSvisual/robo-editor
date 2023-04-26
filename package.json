@@ -11,7 +11,7 @@
     "deploy": "gh-pages -d public -t true"
   },
   "devDependencies": {
-    "@onsvisual/robo-utils": "^0.2.3",
+    "@onsvisual/robo-utils": "^0.2.5",
     "@onsvisual/svelte-charts": "^0.2.11",
     "@rollup/plugin-commonjs": "^24.0.1",
     "@rollup/plugin-json": "^6.0.0",
