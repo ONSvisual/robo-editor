@@ -1,12 +1,14 @@
 {
   "name": "robo-editor",
+  "homepage": "http://onsvisual.github.io/robo-editor/",
   "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
-    "start": "sirv public --no-clear"
+    "start": "sirv public --no-clear",
+    "deploy": "gh-pages -d build -t true"
   },
   "devDependencies": {
     "@onsvisual/robo-utils": "^0.2.3",
@@ -18,6 +20,7 @@
     "d3-dsv": "latest",
     "d3-format": "latest",
     "debounce": "^1.2.1",
+    "gh-pages": "^5.0.0",
     "highlight.js": "^11.7.0",
     "node-html-parser": "^6.1.5",
     "parse-color": "^1.0.0",
