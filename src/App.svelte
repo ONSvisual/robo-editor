@@ -18,7 +18,7 @@
   const filter_default = ["E06","E07","E08","E09","W06", "S12", "N09"];
 	
 	// DOM BINDINGS ETC
-	let rosae, editor, pug_upload, csv_upload;
+	let pug, editor, pug_upload, csv_upload;
 	
   // STATE/DATA
 	let template = "";
@@ -33,10 +33,10 @@
   let w;
 
   const render = debounce(() => {
-    output = renderJSON(template, place, places, lookup, rosae);
+    output = renderJSON(template, place, places, lookup, pug);
     setStorage("robo-store", {data_raw, template, filter, keys});
   }, 500);
-  $: if (rosae && template) render(template, place, places, lookup);
+  $: if (pug && template) render(template, place, places, lookup);
   $: console.log(output);
 
 	function clickPUG() {
@@ -62,7 +62,7 @@
 		while (i < plcs.length && invalid.length < 5) {
 			progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
 			await sleep(0);
-			let output = renderJSON(template, place, places, lookup, rosae);
+			let output = renderJSON(template, place, places, lookup, pug);
 			if (output === "") invalid.push(plcs[i] ? plcs[i][keys.label] : "No area selected");
       i ++;
 		}
@@ -187,7 +187,7 @@
 </script>
 
 <svelte:head>
-	<script src="https://unpkg.com/rosaenlg@3.2.4/dist/rollup/rosaenlg_tiny_en_US_3.2.4_comp.js" on:load={() => rosae = window.rosaenlg_en_US}></script>
+	<script src="https://pugjs.org/js/pug.js" on:load={() => pug = window.require("pug")}></script>
 	{#if plaintext}
 	<style>
 		mark {
