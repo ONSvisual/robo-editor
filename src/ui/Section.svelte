@@ -6,7 +6,7 @@
   export let single = false;
 </script>
 
-<section style:border-top={single ? "none" : null}>
+<section id={section?.id} style:border-top={single ? "none" : null}>
   {#if section.type && !plaintext}<span class="class-label">{section.type}</span>{/if}
   {#if section.id && !plaintext}<span class="id-label">id: {section.id}</span>{/if}
   {#if section.type === "Chart" && section.chartType && !plaintext}
