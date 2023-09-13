@@ -54,16 +54,16 @@ place.getName("in") // returns "in Bristol", "on the Isle of Wight"`}/>
 <CodeBlock code={`moreLess(place.column_key1 - place.column_key2, ["higher than", "lower than", "the same as"])`}/>
 
 <p>Display numbers less than 10 as text (cardinal is the default)</p>
-<CodeBlock code={`place.column_key.toWords() // eg. "two", "seven", "15"`}/>
+<CodeBlock code={`place.column_key.toWords() // eg. "one", "seven", "15"`}/>
 
 <p>Display a number as text, ordinal</p>
-<CodeBlock code={`place.column_key.toWords("ordinal") // eg. "second", "seventh", "15th"`}/>
+<CodeBlock code={`place.column_key.toWords("ordinal") // eg. "first", "seventh", "15th"`}/>
 
-<p>Calculate a rank and display it as text (eg. second, 12th)</p>
-<CodeBlock code={`places.getRank(place, "column_key").toWords("ordinal") // eg. "second", "seventh", "15th"`}/>
+<p>Calculate a rank and display it as text</p>
+<CodeBlock code={`places.getRank(place, "column_key").toWords("ordinal") // eg. "first", "seventh", "15th"`}/>
 
-<p>By default, "first" will return as an empty string (to avoid saying things like "first highest"). To force "first" to be returned for the number 1, you can use the "keepFirst" option</p>
-<CodeBlock code={`places.getRank(place, "column_key").toWords("ordinal", {keepFirst: true}) // eg. "first", "seventh", "15th"`}/>
+<p>You also have the option to return an empty string instead of "first", to avoid saying things like "first highest"</p>
+<CodeBlock code={`places.getRank(place, "column_key").toWords("ordinal", {dropFirst: true}) // eg. "", "seventh", "15th"`}/>
 
 <p>Display larger numbers as text (the second parameter is the threshold, which by default is 9)</p>
 <CodeBlock code={`place.column_key.toWords("cardinal", {threshold: -1}) // eg. "one hundred and five"`}/>
