@@ -10,7 +10,11 @@
   {#if section.type && !plaintext}<span class="class-label">{section.type}</span>{/if}
   {#if section.id && !plaintext}<span class="id-label">id: {section.id}</span>{/if}
   {#if section.type === "Chart" && section.chartType && !plaintext}
-    <Chart section={section}/>
+    {#if Array.isArray(section.data) && section.data[0] && Object.keys(section.data[0]).length > 0}
+      <Chart section={section}/>
+    {:else}
+      <p><mark class="warn">Cannot render chart. Empty/null data array.</mark></p>
+    {/if}
   {:else}
     {#if !plaintext}
     {#each Object.keys(section).filter(key => !["content", "id", "type", "sections"].includes(key)) as key}
@@ -25,3 +29,9 @@
     {/if}
   {/if}
 </section>
+
+<style>
+  mark.warn {
+    background-color: orange;
+  }
+</style>
