@@ -38,6 +38,7 @@ export function sleep(ms = 1000) {
 
 export function getColKeys(keys) {
 	const lc = keys.map(key => key.toLowerCase());
+	
   let id;
 	for (let key of ["areacd", "code", "id"]) {
 		let i = lc.indexOf(key);

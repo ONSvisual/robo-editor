@@ -5,7 +5,7 @@
 	import { format } from "d3-format";
 	import parseColor from "parse-color";
   import debounce from "debounce";
-	import { download, sleep, getColKeys, setStorage, getStorage } from "./utils";
+	import { download, sleep, getColKeys, setStorage, getStorage, deleteStorage } from "./utils";
   import { HSplitPane } from "svelte-split-pane";
 	import Editor from "./ui/Editor.svelte";
 	import Icon from "./ui/Icon.svelte";
@@ -75,26 +75,35 @@
 	}
 
 	function makeData(str, _keys = null, _filter = null) {
-    data_raw = str;
-    let newdata = csvParse(str, autoType);
-    cols = newdata.columns;
-    keys = _keys ? _keys : getColKeys(cols);
-    ids = Array.from(
-      new Set(newdata.map(d => `${d[keys.id]}`.slice(0, 3)))).sort(ascending);
-    console.log(keys, ids);
-    filter = _filter ? _filter : filter_default.some(f => ids.includes(f)) ? filter_default.filter(f => ids.includes(f)) : [];
+		try {
+			data_raw = str;
+			let newdata = csvParse(str, autoType);
+			cols = newdata.columns;
+			keys = _keys ? _keys : getColKeys(cols);
+			ids = Array.from(
+				new Set(newdata.map(d => `${d[keys.id]}`.slice(0, 3)))).sort(ascending);
+			console.log(keys, ids);
+			filter = _filter ? _filter : filter_default.some(f => ids.includes(f)) ? filter_default.filter(f => ids.includes(f)) : [];
 
-		data = new MagicArray(...newdata);
+			const mArray = new MagicArray();
+			for (const d of newdata) mArray.push(d);
+			data = mArray;
 
-		let newlookup = {};
-		data.forEach(d => {
-      newlookup[d[keys.id]] = d;
-      newlookup[d[keys.label]] = d;
-    });
+			let newlookup = {};
+			data.forEach(d => {
+				newlookup[d[keys.id]] = d;
+				newlookup[d[keys.label]] = d;
+			});
 
-		places = filterData(data, keys, filter);
-		place = places[0];
-		lookup = newlookup;
+			places = filterData(data, keys, filter);
+			place = places[0];
+			lookup = newlookup;
+		} catch (err) {
+			const msg = "Failed to load data. Please refresh page.";
+			deleteStorage("robo-store");
+			console.error(msg, err);
+			alert(msg);
+		}
 	}
 	function clickCSV() {
 		csv_upload.click();
