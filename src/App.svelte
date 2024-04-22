@@ -2,17 +2,21 @@
 	import { onMount } from "svelte";
   import { MagicArray, csvParse, renderJSON, ascending } from "@onsvisual/robo-utils";
   import debounce from "debounce";
+	import JSZip from "jszip";
+	import { NodeHtmlMarkdown } from "node-html-markdown";
 	import { download, sleep, getColKeys, setStorage, getStorage, deleteStorage } from "./utils";
   import { HSplitPane } from "svelte-split-pane";
 	import Editor from "./ui/Editor.svelte";
 	import Icon from "./ui/Icon.svelte";
-  import Section from "./ui/Section.svelte";
+	import Output from "./ui/Output.svelte";
   import Modal from "./ui/Modal.svelte";
   import Table from "./ui/Table.svelte";
   import Help from "./Help.svelte";
 
   // CONSTANTS
   const filter_default = ["E06","E07","E08","E09","W06", "S12", "N09"];
+	const process = {env: {}};
+	window.process = process;
 	
 	// DOM BINDINGS ETC
 	let pug, editor, pug_upload, csv_upload;
@@ -27,7 +31,7 @@
 	let progress = 0;
 
   // BINDINGS
-  let w;
+  let w, offScreen;
 
   const render = debounce(() => {
     output = renderJSON(template, place, places, lookup, pug);
@@ -51,16 +55,16 @@
 
 	async function validatePUG() {
 		progress = 0;
-		let invalid = [];
+		const invalid = [];
 
-		let plcs = places ? [null, ...places] : [null];
+		const plcs = places ? [null, ...places] : [null];
 
     let i = 0;
 		while (i < plcs.length && invalid.length < 5) {
 			progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
 			await sleep(0);
 			let output = renderJSON(template, place, places, lookup, pug);
-			if (output === "") invalid.push(plcs[i] ? plcs[i][keys.label] : "No area selected");
+			if (output.error) invalid.push(plcs[i] ? plcs[i][keys.label] : "No area selected");
       i ++;
 		}
 
@@ -121,6 +125,39 @@
 	function savePUG() {
 		let blob = new Blob([template], { type: "text/pug;charset=utf-8" });
 		download(blob, "template.pug");
+	}
+
+	async function saveOutput(mode = "json") {
+		const zip = new JSZip();
+		const out = zip.folder("output");
+		zip.file("data.csv", data_raw);
+		zip.file("template.pug", template);
+
+		const nhm = new NodeHtmlMarkdown();
+		const plcs = places ? [null, ...places] : [null];
+
+    let i = 0;
+		progress = 0;
+		while (i < plcs.length) {
+			progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
+			await sleep(0);
+			const output = renderJSON(template, place, places, lookup, pug);
+			if (!output.error) {
+				if (mode === "md") {
+					new Output({target: offScreen, props: {plaintext: true, output}});
+					const html = offScreen.innerHTML;
+					const md = nhm.translate(html);
+					out.file(`${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.md`, md);
+				} else {
+					out.file(`${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.json`, JSON.stringify(output));
+				}
+			}
+      i ++;
+		}
+
+		const blob = await zip.generateAsync({type:"blob"});
+		download(blob, `${mode === "md" ? "markdown" : "json"}`);
+		offScreen.innerHTML = "";
 	}
 
   async function loadIntro() {
@@ -224,15 +261,23 @@
 
 <main>
 	<nav>
+		{#if progress}
+			<div class="progress-container">
+				<div class="progress-bar" style:width="{(progress * 100).toFixed(0)}%"/>
+			</div>
+		{/if}
 		<div>
       <button title="Close PUG and CSV (return to intro)" on:click={loadIntro}><Icon type="trash"/></button>
-			<button on:click={clickPUG}><Icon type="load" margin/><span>Load PUG</span></button>
-			<button on:click={validatePUG}>{#if progress}{(progress * 100).toFixed(0)}%{:else}<Icon type="validate" margin/>{/if}<span>Validate PUG</span></button>
-			<button on:click={savePUG}><Icon type="save" margin/><span>Save PUG</span></button>
+			<div class="v-divider"/>
+			<span>PUG</span>
+			<button title="Load PUG" on:click={clickPUG}><Icon type="load" margin/><span>Load</span></button>
+			<button title="Validate PUG" on:click={validatePUG}><Icon type="validate" margin/><span>Validate</span></button>
+			<button title="Save PUG" on:click={savePUG}><Icon type="save" margin/><span>Save</span></button>
 			<input type="file" accept=".pug" style="display:none" bind:this={pug_upload} on:change={loadPUG}>
 			<input type="file" accept=".csv" style="display:none" bind:this={csv_upload} on:change={loadCSV}>
       <div class="v-divider"/>
-			<button on:click={clickCSV}><Icon type="load" margin/><span>Load CSV</span></button>
+			<span>CSV</span>
+			<button title="Load CSV" on:click={clickCSV}><Icon type="load" margin/><span>Load</span></button>
 			<select bind:value={place} disabled={!places}>
 				{#if places}
 				<option value={null}>No area selected</option>
@@ -246,9 +291,12 @@
       <button style:margin-right="0" disabled={!places} title="Show CSV as table" on:click={() => modal_data = true}><Icon type="table"/></button>
       <button disabled={!places} title="Filter CSV by ID" on:click={() => modal_filter = true}><Icon type="filter"/></button>
       <div class="v-divider"/>
+			<span>Output</span>
+			<button title="Save as Markdown" on:click={() => saveOutput("md")}><Icon type="save" margin/><span>MD</span></button>
+			<button title="Save as JSON" on:click={() => saveOutput("json")}><Icon type="save" margin/><span>JSON</span></button>
 			<label>
 				<input type="checkbox" bind:checked={plaintext}/>
-				Plain text
+				Text only
 			</label>
 		</div>
     <div>
@@ -263,11 +311,7 @@
       </left>
       <right slot="right">
         <div class="preview">
-          {#if output}
-          {#each output.sections as section, i}
-          <Section {section} {plaintext} single={i === 0}/>
-          {/each}
-          {/if}
+					<Output {output} {plaintext}/>
         </div>
       </right>
     </HSplitPane>
@@ -311,6 +355,8 @@
 <Modal title="Help" bind:open={modal_help}>
   <Help/>
 </Modal>
+
+<div style:display="none" bind:this={offScreen}/>
 
 <style>
 	:global(*) {
@@ -376,6 +422,7 @@
 		max-height: 100vh;
 	}
 	nav {
+		position: relative;
     width: 100%;
 		display: flex;
 		flex-direction: row;
@@ -387,6 +434,9 @@
 		display: flex;
 		flex-direction: row;
 		align-items: center;
+	}
+	nav > div > span {
+		padding-right: 6px;
 	}
 	button {
 		display: inline-flex;
@@ -441,4 +491,18 @@
     background-color: grey;
     margin-right: 8px;
   }
+	.progress-container {
+		position: absolute;
+		display: block;
+		z-index: 100;
+		top: 100%;
+		left: 0;
+		right: 0;
+		height: 5px;
+	}
+	.progress-bar {
+		height: 100%;
+		left: 0;
+		background: orange;
+	}
 </style>
