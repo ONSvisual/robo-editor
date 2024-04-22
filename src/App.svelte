@@ -1,9 +1,6 @@
 <script>
 	import { onMount } from "svelte";
-  import { MagicArray, autoType, renderJSON, ascending } from "@onsvisual/robo-utils";
-	import { csvParse } from "d3-dsv";
-	import { format } from "d3-format";
-	import parseColor from "parse-color";
+  import { MagicArray, csvParse, renderJSON, ascending } from "@onsvisual/robo-utils";
   import debounce from "debounce";
 	import { download, sleep, getColKeys, setStorage, getStorage, deleteStorage } from "./utils";
   import { HSplitPane } from "svelte-split-pane";
@@ -77,7 +74,7 @@
 	function makeData(str, _keys = null, _filter = null) {
 		try {
 			data_raw = str;
-			let newdata = csvParse(str, autoType);
+			let newdata = csvParse(str);
 			cols = newdata.columns;
 			keys = _keys ? _keys : getColKeys(cols);
 			ids = Array.from(
@@ -85,9 +82,7 @@
 			console.log(keys, ids);
 			filter = _filter ? _filter : filter_default.some(f => ids.includes(f)) ? filter_default.filter(f => ids.includes(f)) : [];
 
-			const mArray = new MagicArray();
-			for (const d of newdata) mArray.push(d);
-			data = mArray;
+			data = MagicArray.from(newdata);
 
 			let newlookup = {};
 			data.forEach(d => {
