@@ -63,7 +63,7 @@
 		while (i < plcs.length && invalid.length < 5) {
 			progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
 			await sleep(0);
-			let output = renderJSON(template, place, places, lookup, pug);
+			let output = renderJSON(template, plcs[i], places, lookup, pug);
 			if (output.error) invalid.push(plcs[i] ? plcs[i][keys.label] : "No area selected");
       i ++;
 		}
@@ -136,28 +136,28 @@
 		const nhm = new NodeHtmlMarkdown();
 		const plcs = places ? [null, ...places] : [null];
 
-    let i = 0;
-		progress = 0;
-		while (i < plcs.length) {
-			progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
-			await sleep(0);
-			const output = renderJSON(template, place, places, lookup, pug);
-			if (!output.error) {
-				if (mode === "md") {
-					new Output({target: offScreen, props: {plaintext: true, output}});
-					const html = offScreen.innerHTML;
-					const md = nhm.translate(html);
-					out.file(`${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.md`, md);
-				} else {
-					out.file(`${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.json`, JSON.stringify(output));
+		let i = 0;
+			progress = 0;
+			while (i < plcs.length) {
+				progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
+				await sleep(0);
+				const output = renderJSON(template, plcs[i], places, lookup, pug);
+				if (!output.error) {
+					if (mode === "md") {
+						new Output({target: offScreen, props: {plaintext: true, output}});
+						const html = offScreen.innerHTML;
+						const md = nhm.translate(html);
+						out.file(`${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.md`, md);
+						offScreen.innerHTML = "";
+					} else {
+						out.file(`${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.json`, JSON.stringify(output));
+					}
 				}
-			}
-      i ++;
+		i ++;
 		}
 
 		const blob = await zip.generateAsync({type:"blob"});
 		download(blob, `${mode === "md" ? "markdown" : "json"}`);
-		offScreen.innerHTML = "";
 	}
 
   async function loadIntro() {
