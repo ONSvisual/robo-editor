@@ -4,6 +4,7 @@
   import debounce from "debounce";
 	import JSZip from "jszip";
 	import { NodeHtmlMarkdown } from "node-html-markdown";
+	import computedStyleToInlineStyle from 'computed-style-to-inline-style';
 	import { download, sleep, getColKeys, setStorage, getStorage, deleteStorage } from "./utils";
   import { HSplitPane } from "svelte-split-pane";
 	import Editor from "./ui/Editor.svelte";
@@ -19,7 +20,7 @@
 	window.process = process;
 	
 	// DOM BINDINGS ETC
-	let pug, editor, pug_upload, csv_upload;
+	let pug, htmlToRtf, editor, pug_upload, csv_upload;
 	
   // STATE/DATA
 	let template = "";
@@ -137,27 +138,37 @@
 		const plcs = places ? [null, ...places] : [null];
 
 		let i = 0;
-			progress = 0;
-			while (i < plcs.length) {
-				progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
-				await sleep(0);
-				const output = renderJSON(template, plcs[i], places, lookup, pug);
-				if (!output.error) {
+		progress = 0;
+		while (i < plcs.length) {
+			progress = i === plcs.length - 1 ? 0 : (i + 1) / plcs.length;
+			await sleep(0);
+			const output = renderJSON(template, plcs[i], places, lookup, pug);
+			if (!output.error) {
+				const filename = `${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.${mode}`;
+				if (mode === "md" || mode === "rtf") {
+					new Output({target: offScreen, props: {plaintext: true, output}});
+					let renderedOutput;
 					if (mode === "md") {
-						new Output({target: offScreen, props: {plaintext: true, output}});
-						const html = offScreen.innerHTML;
-						const md = nhm.translate(html);
-						out.file(`${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.md`, md);
-						offScreen.innerHTML = "";
+						renderedOutput = nhm.translate(offScreen.innerHTML);
 					} else {
-						out.file(`${plcs[i] ? `${plcs[i][keys.id]}_${plcs[i][keys.label]}` : 'Default'}.json`, JSON.stringify(output));
+						computedStyleToInlineStyle(offScreen, {
+							recursive: true,
+							properties: ["font-size", "color"],
+						});
+						const html = offScreen.innerHTML.replace(/\n/g, "").replace(/\d+(?:.\d+)?(?=px)/g, (val) => +val * 2);
+						renderedOutput = htmlToRtf(html);
 					}
+					out.file(filename, renderedOutput);
+					offScreen.innerHTML = "";
+				} else {
+					out.file(filename, JSON.stringify(output));
 				}
-		i ++;
+			}
+			i ++;
 		}
 
 		const blob = await zip.generateAsync({type:"blob"});
-		download(blob, `${mode === "md" ? "markdown" : "json"}`);
+		download(blob, `${mode}.zip`);
 	}
 
   async function loadIntro() {
@@ -229,6 +240,8 @@
 
 <svelte:head>
 	<script src="https://pugjs.org/js/pug.js" on:load={() => pug = window.require("pug")}></script>
+	<script src="https://www.unpkg.com/html-to-rtf@2.1.0/app/browser/bundle.js" on:load={() => htmlToRtf = window.htmlToRtf}></script>
+	/node_modules/html-to-rtf/app/browser/bundle.js
 	{#if plaintext}
 	<style>
 		mark {
@@ -292,6 +305,7 @@
       <button disabled={!places} title="Filter CSV by ID" on:click={() => modal_filter = true}><Icon type="filter"/></button>
       <div class="v-divider"/>
 			<span>Output</span>
+			<button title="Save as RTF" on:click={() => saveOutput("rtf")}><Icon type="save" margin/><span>RTF</span></button>
 			<button title="Save as Markdown" on:click={() => saveOutput("md")}><Icon type="save" margin/><span>MD</span></button>
 			<button title="Save as JSON" on:click={() => saveOutput("json")}><Icon type="save" margin/><span>JSON</span></button>
 			<label>

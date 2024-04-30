@@ -7,6 +7,8 @@
 
 {#if output}
   {#each output.sections as section, i}
-    <Section {section} {plaintext} single={i === 0}/>
+    {#if !(section.type === "Chart" && plaintext)}
+      <Section {section} {plaintext} single={i === 0}/>
+    {/if}
   {/each}
 {/if}

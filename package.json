@@ -17,6 +17,7 @@
     "@rollup/plugin-json": "^6.0.0",
     "@rollup/plugin-node-resolve": "^15.0.1",
     "@rollup/plugin-terser": "^0.4.0",
+    "computed-style-to-inline-style": "^4.0.0",
     "d3-dsv": "latest",
     "d3-format": "latest",
     "debounce": "^1.2.1",
